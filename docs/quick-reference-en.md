@@ -1,6 +1,7 @@
 # DirectAdmin PHP Tuning — Quick Reference
 
 One-page cheat sheet. Full Vietnamese playbook: [../README.md](../README.md).
+Diagrams (request flow, config layers, FPM pools, OPcache, timeouts): [diagrams.md](diagrams.md).
 
 ## First: patch, then tune
 

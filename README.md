@@ -34,6 +34,8 @@ Trọng tâm:
 - Công thức tính `pm.max_children` theo RAM thực tế, không đoán.
 - Bộ cấu hình mẫu cho OPcache, php.ini, PHP-FPM và Redis.
 - Script `da-php-audit.sh` đọc cấu hình, đếm worker, kiểm tra OPcache/Redis/PHP2Shell và in cảnh báo.
+- Bộ **sơ đồ Mermaid** — luồng request, phân tầng cấu hình, pool FPM, OPcache,
+  chuỗi timeout, vòng lặp tối ưu, kế hoạch 60 phút — render trực tiếp trên GitHub.
 - Case study có số liệu trước/sau, kèm những thứ **không** hiệu quả.
 - Checklist, bảng lỗi thường gặp, FAQ và thuật ngữ.
 
@@ -45,6 +47,7 @@ Trọng tâm:
 
 ## Mục lục
 
+- [Sơ đồ tổng quan](#sơ-đồ-tổng-quan)
 - [1. TL;DR: mười việc nên làm theo thứ tự](#1-tldr-mười-việc-nên-làm-theo-thứ-tự)
 - [2. Đo baseline trước khi tối ưu](#2-đo-baseline-trước-khi-tối-ưu)
 - [3. DirectAdmin và CustomBuild: những đường dẫn cần biết](#3-directadmin-và-custombuild-những-đường-dẫn-cần-biết)
@@ -62,6 +65,126 @@ Trọng tâm:
 - [15. FAQ](#15-faq)
 - [16. Thuật ngữ](#16-thuật-ngữ)
 - [17. Cấu trúc repo, đóng góp và License](#17-cấu-trúc-repo-đóng-góp-và-license)
+
+---
+
+## Sơ đồ tổng quan
+
+Bộ sơ đồ đầy đủ — 10 hình, kèm bản ASCII để đọc offline: **[docs/diagrams.md](docs/diagrams.md)**.
+Dưới đây là ba hình quan trọng nhất, đủ để hiểu 80% sự cố thường gặp.
+
+### Luồng request
+
+```mermaid
+flowchart LR
+    U["Người dùng"] --> CDN["CDN / WAF"]
+    CDN --> NG["nginx<br/>static + proxy"]
+    NG -->|proxy_read_timeout 65s| AP["Apache<br/>nginx_apache"]
+    AP -->|fastcgi| FP["PHP-FPM<br/>pool USER"]
+    FP --> DB[("MySQL / MariaDB")]
+    FP --> RD[("Redis")]
+    NG -.->|file tĩnh| DSK[("NVMe")]
+
+    classDef client fill:#FFF4E5,stroke:#F59E0B,color:#7C2D12
+    classDef web fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E
+    classDef php fill:#EDE9FE,stroke:#7C3AED,color:#3B0764
+    classDef data fill:#DCFCE7,stroke:#16A34A,color:#052E16
+    class U,CDN client
+    class NG,AP web
+    class FP php
+    class DB,RD,DSK data
+```
+
+Đọc từ trái sang phải là đường đi của request; đọc từ phải sang trái khi có 502/504 — lỗi thường nằm ở tầng **sau**, không phải tầng người dùng nhìn thấy.
+
+### Nguồn và kết quả cấu hình
+
+```mermaid
+flowchart LR
+    subgraph SRC["NGUỒN — sửa ở đây"]
+        direction TB
+        O["options.conf<br/>phiên bản, handler"]
+        TC["templates/custom/"]
+        PD["php.conf.d/99-*.ini"]
+        OC["custom/opcache/opcache.ini"]
+        CC["CUSTOM1 / CUSTOM2"]
+    end
+
+    C1["da build php"]
+    C2["da build rewrite_confs"]
+    C3["da build opcache"]
+
+    subgraph GEN["KẾT QUẢ — đừng sửa"]
+        direction TB
+        B1["php.ini"]
+        B2["10-directadmin.ini"]
+        B3["php-fpm83.conf<br/>pool theo user"]
+        B4["vhost nginx / httpd"]
+    end
+
+    O --> C1
+    O --> C2
+    PD --> C1
+    OC --> C3
+    TC --> C2
+    CC --> C2
+
+    C1 --> B1
+    C1 --> B2
+    C3 --> B2
+    C2 --> B3
+    C2 --> B4
+
+    classDef src fill:#DCFCE7,stroke:#16A34A,color:#052E16
+    classDef cmd fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E
+    classDef gen fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D
+    class O,TC,PD,OC,CC src
+    class C1,C2,C3 cmd
+    class B1,B2,B3,B4 gen
+
+```
+
+Cần chỉnh sửa bền qua rebuild thì sửa **cột xanh**. Nếu đã sửa cột đỏ rồi thấy mất sau `da build`, đó là hành vi đúng của hệ thống — không phải bug.
+
+### Pool PHP-FPM theo user
+
+```mermaid
+flowchart TB
+    WEB["nginx / Apache"] -->|unix socket| M["Master php-fpm83"]
+
+    M --> PA["Pool alice<br/>max_children 4"]
+    M --> PB["Pool bob<br/>max_children 4"]
+    M --> PC["Pool carol (Woo)<br/>max_children 12"]
+
+    PA --> WA["worker 0..4"]
+    PB --> WB["worker 0..4"]
+    PC --> WC["worker 0..12"]
+
+    M -.- OPC["OPcache<br/>shared theo master"]
+
+    classDef web fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E
+    classDef master fill:#FEF3C7,stroke:#D97706,color:#78350F
+    classDef pool fill:#EDE9FE,stroke:#7C3AED,color:#3B0764
+    classDef worker fill:#F1F5F9,stroke:#64748B,color:#0F172A
+    class WEB web
+    class M master
+    class PA,PB,PC pool
+    class WA,WB,WC worker
+```
+
+Một pool cho **mỗi user, mỗi phiên bản PHP** — không phải mỗi domain. Mọi domain của cùng một tài khoản chia nhau đúng `max_children` đó. Đây là gốc của phần lớn sự cố "một site bị crawl, cả tài khoản chết".
+
+### Các sơ đồ còn lại
+
+| Sơ đồ | Nội dung |
+|---|---|
+| [Vòng đời worker `ondemand`](docs/diagrams.md#4-vòng-đời-worker-ondemand) | Worker sinh ra, chết khi nào, `process_idle_timeout` và `max_requests` |
+| [OPcache nằm ở đâu](docs/diagrams.md#5-opcache-nằm-ở-đâu) | Vì sao 4 phiên bản PHP tốn 1 GB, vì sao isolated FPM dễ OOM |
+| [Cây quyết định `max_children`](docs/diagrams.md#6-cây-quyết-định-max_children) | Tính worker theo RAM thực tế, không đoán |
+| [Chuỗi timeout lồng nhau](docs/diagrams.md#7-chuỗi-timeout-lồng-nhau) | Vì sao có 504 dù PHP vẫn đang chạy |
+| [Vòng lặp tối ưu](docs/diagrams.md#8-vòng-lặp-tối-ưu) | Đo — đổi — đo — rollback |
+| [Ba tầng cache](docs/diagrams.md#9-ba-tầng-cache) | Page cache, OPcache, object cache khác nhau ở đâu |
+| [Kế hoạch 60 phút](docs/diagrams.md#10-kế-hoạch-60-phút) | Thứ tự công việc trong một cửa sổ bảo trì |
 
 ---
 
@@ -2175,6 +2298,7 @@ directadmin-php-tuning/
 │   └── redis-session.ini          # Session Redis + ghi chú bảo mật
 ├── docs/
 │   ├── checklist-vn.md            # Checklist dạng tick-box
+│   ├── diagrams.md                # 10 sơ đồ Mermaid + bản ASCII
 │   └── quick-reference-en.md      # Cheat sheet một trang tiếng Anh
 └── scripts/
     └── da-php-audit.sh            # Audit chỉ-đọc, không sửa gì
