@@ -1,0 +1,63 @@
+name: diagrams
+
+# Bốn sơ đồ SVG trong docs/img/ được sinh từ tools/gen_diagrams.py.
+# Workflow này không tự commit gì cả — nó chỉ báo lỗi nếu file đã commit
+# không còn khớp với script, để không ai phải đoán bản nào là bản thật.
+
+on:
+  push:
+    paths:
+      - "tools/gen_diagrams.py"
+      - "docs/img/**"
+      - ".github/workflows/diagrams.yml"
+  pull_request:
+    paths:
+      - "tools/gen_diagrams.py"
+      - "docs/img/**"
+      - ".github/workflows/diagrams.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: SVG khớp với script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Kiểm tra đồng bộ
+        run: python3 tools/gen_diagrams.py --check
+
+      - name: Kiểm tra XML và animation
+        run: |
+          python3 - <<'PY'
+          import glob
+          import sys
+          import xml.etree.ElementTree as ET
+
+          fail = False
+          for path in sorted(glob.glob("docs/img/*.svg")):
+              try:
+                  ET.parse(path)
+              except ET.ParseError as exc:
+                  print(f"FAIL {path}: XML lỗi: {exc}")
+                  fail = True
+                  continue
+
+              text = open(path, encoding="utf-8").read()
+              moving = text.count("animateMotion")
+              keyframes = text.count("@keyframes")
+              if moving == 0 or keyframes == 0:
+                  print(f"FAIL {path}: thiếu animateMotion hoặc @keyframes")
+                  fail = True
+                  continue
+              print(f"OK   {path}: {moving} chuyển động, {keyframes} bộ keyframes")
+
+          sys.exit(1 if fail else 0)
+          PY

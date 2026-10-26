@@ -6,6 +6,7 @@ Bộ sơ đồ cho playbook [tối ưu PHP trên DirectAdmin](../README.md). T�
 > Bốn sơ đồ quan trọng nhất có thêm **bản động SVG** (mũi tên chảy, gói tin di chuyển):
 > [request-flow.svg](img/request-flow.svg) · [config-pipeline.svg](img/config-pipeline.svg) ·
 > [fpm-pools.svg](img/fpm-pools.svg) · [timeouts.svg](img/timeouts.svg).
+> Sinh lại bằng `python3 tools/gen_diagrams.py` — sửa script, đừng sửa tay `.svg`.
 
 | # | Sơ đồ | Trả lời câu hỏi |
 |---|---|---|

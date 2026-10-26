@@ -2233,8 +2233,13 @@ directadmin-php-tuning/
 │   │   ├── fpm-pools.svg
 │   │   └── timeouts.svg
 │   └── quick-reference-en.md      # Cheat sheet một trang tiếng Anh
-└── scripts/
-    └── da-php-audit.sh            # Audit chỉ-đọc, không sửa gì
+├── scripts/
+│   └── da-php-audit.sh            # Audit chỉ-đọc, không sửa gì
+├── tools/
+│   └── gen_diagrams.py            # Sinh 4 sơ đồ SVG động (không cần thư viện ngoài)
+└── .github/
+    └── workflows/
+        └── diagrams.yml           # CI: báo lỗi nếu SVG lệch với script
 ```
 
 ### 17.2. Script audit
@@ -2257,18 +2262,35 @@ Script sẽ:
 
 Script **không** ghi file, không sửa cấu hình, không restart service, không gửi dữ liệu ra ngoài.
 
-### 17.3. Đóng góp
+### 17.3. Script sinh sơ đồ
+
+Bốn sơ đồ động trong `docs/img/` **không phải vẽ tay** — chúng sinh ra từ `tools/gen_diagrams.py`:
+
+```bash
+python3 tools/gen_diagrams.py            # ghi lại 4 file SVG
+python3 tools/gen_diagrams.py --check    # chỉ kiểm tra, exit 1 nếu SVG lệch với script
+```
+
+Không cần cài gì: chỉ dùng thư viện chuẩn của Python 3. Muốn đổi màu, đổi nhãn, thêm bớt một
+mũi tên thì sửa file script rồi chạy lại — **đừng sửa tay file `.svg`**, lần chạy sau sẽ ghi đè.
+
+Script kiểm tra XML trước khi ghi, nên nếu toạ độ sai thì file đang có vẫn nguyên vẹn.
+
+Mỗi lần push thay đổi trong `tools/` hoặc `docs/img/`, workflow `.github/workflows/diagrams.yml`
+chạy `--check`. Nếu ai đó sửa tay SVG mà quên chạy lại script, CI báo đỏ kèm đúng câu lệnh cần chạy.
+
+### 17.4. Đóng góp
 
 - Mở issue mô tả môi trường (OS, DA version, PHP version, web server) và hành vi mong đợi.
 - Pull request nên nhỏ, có lý do và có cách kiểm chứng.
 - Không đưa thông tin nhận dạng khách hàng, mật khẩu, token, IP thật vào issue/PR.
 - Nếu thêm con số hiệu năng, ghi rõ môi trường và phương pháp đo.
 
-### 17.4. License
+### 17.5. License
 
 MIT — xem [LICENSE](LICENSE). Dùng, sửa, chia sẻ thoải mái, không bảo hành.
 
-### 17.5. Tài liệu tham khảo
+### 17.6. Tài liệu tham khảo
 
 - [DirectAdmin — PHP-FPM](https://docs.directadmin.com/webservices/php/php-fpm.html)
 - [DirectAdmin — PHP Options](https://docs.directadmin.com/webservices/php/php-options.html)
