@@ -1,0 +1,15 @@
+# Báo cáo sinh ra khi chạy audit
+/report*.txt
+/report*.json
+/tmp/
+
+# File tạm, editor, hệ điều hành
+*.swp
+*.swo
+.DS_Store
+.idea/
+.vscode/
+
+# Không commit log hoặc dữ liệu benchmark thô
+/bench-results/
+*.log
