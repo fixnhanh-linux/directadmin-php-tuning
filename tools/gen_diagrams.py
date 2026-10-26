@@ -426,7 +426,7 @@ def main(argv=None):
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(_PENDING[name])
         if not args.quiet:
-            print(f"ghi {path} ({len(_PENDING[name])} B)")
+            print(f"ghi {path} ({os.path.getsize(path)} B)")
     return 0
 
 
