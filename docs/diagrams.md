@@ -2,6 +2,11 @@
 
 Bộ sơ đồ cho playbook [tối ưu PHP trên DirectAdmin](../README.md). Tất cả vẽ bằng **Mermaid** — GitHub render thành hình ngay trong trang, không cần cài gì. Muốn sửa thì sửa text, không phải sửa ảnh.
 
+> [!TIP]
+> Bốn sơ đồ quan trọng nhất có thêm **bản động SVG** (mũi tên chảy, gói tin di chuyển):
+> [request-flow.svg](img/request-flow.svg) · [config-pipeline.svg](img/config-pipeline.svg) ·
+> [fpm-pools.svg](img/fpm-pools.svg) · [timeouts.svg](img/timeouts.svg).
+
 | # | Sơ đồ | Trả lời câu hỏi |
 |---|---|---|
 | 1 | [Luồng request](#1-luồng-request-từ-trình-duyệt-đến-database) | Request đi qua những tầng nào? |
